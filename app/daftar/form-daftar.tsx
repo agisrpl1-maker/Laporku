@@ -16,7 +16,7 @@ export function FormDaftar({ kembali }: { kembali: string }) {
       key={state.percobaan}
       action={action}
       noValidate
-      className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+      className="animate-fade-up space-y-4 rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm"
     >
       <input type="hidden" name="kembali" value={kembali} />
       {state.pesan && <Pesan jenis="galat">{state.pesan}</Pesan>}

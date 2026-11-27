@@ -43,7 +43,7 @@ export function FormLapor({ kategori, namaDefault = "" }: { kategori: Kategori[]
   return (
     // noValidate: semua validasi dilakukan di server agar pesan galat seragam per kolom.
     // key berubah tiap percobaan supaya isian lama (values) dipasang ulang dan tidak hilang.
-    <form key={state.percobaan} action={kirim} noValidate className="space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <form key={state.percobaan} action={kirim} noValidate className="animate-fade-up space-y-5 rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm">
       {state.pesan && <Pesan jenis="galat">{state.pesan}</Pesan>}
 
       <div>

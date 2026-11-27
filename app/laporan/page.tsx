@@ -104,8 +104,8 @@ async function Konten({ searchParams }: { searchParams: Promise<SP> }) {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
-            {hasil.items.map((l) => (
-              <KartuLaporan key={l.id} laporan={l} />
+            {hasil.items.map((l, idx) => (
+              <KartuLaporan key={l.id} laporan={l} indeks={idx} />
             ))}
           </div>
           <Paginasi

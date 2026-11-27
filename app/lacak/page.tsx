@@ -47,7 +47,7 @@ async function Konten({ searchParams }: { searchParams: Promise<Record<string, s
 
   return (
     <div className="space-y-6">
-      <Form action="/lacak" className="flex gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <Form action="/lacak" className="animate-fade-up flex gap-2 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm">
         <label htmlFor="kode" className="sr-only">Kode laporan</label>
         <input id="kode" name="kode" defaultValue={mentah ?? ""} placeholder="LP-0001" className={`${kelasInput} mt-0 font-mono uppercase`} />
         <button type="submit" className={kelasTombol}>Cari</button>
