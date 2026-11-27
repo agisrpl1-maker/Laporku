@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -45,6 +46,17 @@ async function Konten({ params }: { params: Promise<{ id: string }> }) {
           <div><dt className="text-slate-500">Diperbarui</dt><dd className="font-medium">{formatTanggal(laporan.diperbarui)}</dd></div>
         </dl>
         <p className="mt-4 whitespace-pre-line text-slate-700">{laporan.deskripsi}</p>
+        {laporan.foto_url && (
+          <div className="relative mt-4 aspect-[16/10] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+            <Image
+              src={laporan.foto_url}
+              alt={`Foto kerusakan: ${laporan.judul}`}
+              fill
+              sizes="(max-width: 768px) 100vw, 720px"
+              className="object-contain"
+            />
+          </div>
+        )}
       </div>
 
       <FormUbah id={laporan.id} status={laporan.status} tanggapan={laporan.tanggapan ?? ""} />

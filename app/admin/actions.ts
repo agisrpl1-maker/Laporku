@@ -7,6 +7,7 @@ import { supabaseServer } from "@/lib/supabase";
 import { bacaKategori, bacaUbahLaporan, type FieldErrors, type UbahField } from "@/lib/validasi";
 import { isStatus } from "@/lib/types";
 import { pesanGalatDb } from "@/lib/format";
+import { hapusFotoLaporan } from "@/lib/storage";
 
 /* Setiap aksi di file ini WAJIB memanggil requireAdmin() terlebih dahulu,
    karena Server Action bisa dipanggil langsung tanpa membuka halamannya. */
@@ -56,9 +57,12 @@ export async function hapusLaporan(id: number): Promise<HapusState> {
   await requireAdmin();
   if (!idValid(id)) return { pesan: "ID laporan tidak valid." };
 
-  const { error } = await supabaseServer().from("laporan").delete().eq("id", id);
+  const db = supabaseServer();
+  const { data: lama } = await db.from("laporan").select("foto_url").eq("id", id).maybeSingle();
+  const { error } = await db.from("laporan").delete().eq("id", id);
   if (error) return { pesan: pesanGalatDb(error) };
 
+  await hapusFotoLaporan(lama?.foto_url);
   redirect("/admin");
 }
 

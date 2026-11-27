@@ -1,10 +1,12 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getLaporanByKode } from "@/lib/data";
 import { normalisasiKode, POLA_KODE } from "@/lib/validasi";
 import { formatTanggal } from "@/lib/format";
-import { kodeDidukung } from "@/lib/dukungan";
+import { sudahDidukungPengguna } from "@/lib/dukungan";
+import { getPenggunaAktif } from "@/lib/user-auth";
 import { Memuat, Pesan, StatusBadge } from "@/components/ui";
 import { TombolDukung } from "./tombol-dukung";
 
@@ -31,13 +33,13 @@ async function Detail({
   // Format kode salah (mis. /laporan/abc) atau tidak ada (mis. LP-9999) -> 404
   if (!POLA_KODE.test(kode)) notFound();
 
-  const [laporan, sp, didukung] = await Promise.all([
+  const [laporan, sp, pengguna] = await Promise.all([
     getLaporanByKode(kode),
     searchParams,
-    kodeDidukung(),
+    getPenggunaAktif(),
   ]);
   if (!laporan) notFound();
-  const sudah = didukung.includes(kode);
+  const sudah = pengguna ? await sudahDidukungPengguna(laporan.id, pengguna.id) : false;
 
   return (
     <article className="mt-4 space-y-6">
@@ -62,6 +64,21 @@ async function Detail({
         </dl>
         <h2 className="mt-6 text-sm font-semibold text-slate-500">Deskripsi</h2>
         <p className="mt-1 whitespace-pre-line">{laporan.deskripsi}</p>
+
+        {laporan.foto_url && (
+          <div className="mt-6">
+            <h2 className="text-sm font-semibold text-slate-500">Foto kerusakan</h2>
+            <div className="relative mt-2 aspect-[16/10] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+              <Image
+                src={laporan.foto_url}
+                alt={`Foto kerusakan: ${laporan.judul}`}
+                fill
+                sizes="(max-width: 768px) 100vw, 720px"
+                className="object-contain"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -78,7 +95,7 @@ async function Detail({
           <p className="text-sm text-slate-500">Dukungan</p>
           <p className="text-3xl font-bold">{laporan.dukungan}</p>
         </div>
-        <TombolDukung kode={laporan.kode} sudah={sudah} />
+        <TombolDukung kode={laporan.kode} sudah={sudah} sudahMasuk={Boolean(pengguna)} />
       </div>
     </article>
   );

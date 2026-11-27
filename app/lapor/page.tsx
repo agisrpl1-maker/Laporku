@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getKategori } from "@/lib/data";
+import { getPenggunaAktif } from "@/lib/user-auth";
 import { Judul, Memuat } from "@/components/ui";
 import { FormLapor } from "./form-lapor";
 
@@ -18,6 +19,6 @@ export default function LaporPage() {
 }
 
 async function Konten() {
-  const kategori = await getKategori();
-  return <FormLapor kategori={kategori} />;
+  const [kategori, pengguna] = await Promise.all([getKategori(), getPenggunaAktif()]);
+  return <FormLapor kategori={kategori} namaDefault={pengguna?.nama ?? ""} />;
 }

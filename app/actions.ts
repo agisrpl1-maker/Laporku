@@ -1,12 +1,12 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { refresh } from "next/cache";
 import { supabaseServer } from "@/lib/supabase";
 import { bacaLaporan, POLA_KODE, type FieldErrors, type LaporanField } from "@/lib/validasi";
 import { pesanGalatDb } from "@/lib/format";
-import { COOKIE_DUKUNGAN, kodeDidukung } from "@/lib/dukungan";
+import { getPenggunaAktif } from "@/lib/user-auth";
+import { hapusFotoLaporan, unggahFotoLaporan } from "@/lib/storage";
 
 /* ============================== Buat laporan ============================== */
 
@@ -14,12 +14,12 @@ export type LaporState = {
   percobaan: number;
   pesan?: string;
   errors: FieldErrors<LaporanField>;
-  values: Partial<Record<LaporanField, string>>;
+  values: Partial<Record<Exclude<LaporanField, "foto">, string>>;
 };
 
 export async function buatLaporan(prev: LaporState, formData: FormData): Promise<LaporState> {
   const percobaan = prev.percobaan + 1;
-  const { values, errors, data, valid } = bacaLaporan(formData);
+  const { values, errors, data, foto, valid } = bacaLaporan(formData);
   if (!valid) {
     return { percobaan, values, errors, pesan: "Periksa kembali isian yang ditandai merah." };
   }
@@ -52,6 +52,16 @@ export async function buatLaporan(prev: LaporState, formData: FormData): Promise
     };
   }
 
+  let fotoUrl: string | null = null;
+  if (foto) {
+    try {
+      fotoUrl = await unggahFotoLaporan(foto);
+    } catch (err) {
+      const pesan = err instanceof Error ? err.message : "Gagal mengunggah foto.";
+      return { percobaan, values, errors: { foto: pesan }, pesan };
+    }
+  }
+
   const { data: baru, error } = await db
     .from("laporan")
     .insert({
@@ -60,11 +70,13 @@ export async function buatLaporan(prev: LaporState, formData: FormData): Promise
       deskripsi: data.deskripsi,
       lokasi: data.lokasi,
       pelapor: data.pelapor,
+      foto_url: fotoUrl,
     })
     .select("kode")
     .single();
 
   if (error) {
+    if (fotoUrl) await hapusFotoLaporan(fotoUrl);
     const pesan = pesanGalatDb(error);
     const errKolom: FieldErrors<LaporanField> = error.message.includes("BATAS_LAPORAN_BARU")
       ? { pelapor: pesan }
@@ -77,7 +89,6 @@ export async function buatLaporan(prev: LaporState, formData: FormData): Promise
 
 /* ============================== Dukung laporan ============================== */
 
-
 export type DukungState = { ok?: boolean; pesan?: string };
 
 export async function dukungLaporan(kode: string): Promise<DukungState> {
@@ -85,24 +96,20 @@ export async function dukungLaporan(kode: string): Promise<DukungState> {
     return { ok: false, pesan: "Kode laporan tidak valid." };
   }
 
-  // Satu pengunjung hanya boleh mendukung laporan yang sama satu kali.
-  // Daftar kode yang sudah didukung disimpan di cookie httpOnly (tidak bisa dibaca JavaScript).
-  const sudah = await kodeDidukung();
-  if (sudah.includes(kode)) {
-    return { ok: false, pesan: "Anda sudah mendukung laporan ini. Dukungan hanya bisa diberikan satu kali." };
+  // Pembatasan mutlak berbasis akun: wajib masuk terlebih dahulu.
+  const pengguna = await getPenggunaAktif();
+  if (!pengguna) {
+    return { ok: false, pesan: "Silakan masuk terlebih dahulu untuk mendukung laporan ini." };
   }
 
-  const { data, error } = await supabaseServer().rpc("tambah_dukungan", { p_kode: kode });
+  // Fungsi atomik di basis data menjamin 1 akun maksimal 1 dukungan per laporan
+  // (constraint UNIQUE(laporan_id, pengguna_id)).
+  const { data, error } = await supabaseServer().rpc("tambah_dukungan_pengguna", {
+    p_kode: kode,
+    p_pengguna_id: pengguna.id,
+  });
   if (error) return { ok: false, pesan: pesanGalatDb(error) };
   if (data === null) return { ok: false, pesan: "Laporan tidak ditemukan." };
-
-  (await cookies()).set(COOKIE_DUKUNGAN, [...sudah, kode].slice(-200).join("|"), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-  });
 
   refresh();
   return { ok: true, pesan: "Terima kasih! Dukungan Anda sudah tercatat." };
