@@ -4,9 +4,12 @@
 -- Skrip aman dijalankan ulang (menghapus tabel lama lebih dulu).
 -- =====================================================================
 
+drop table if exists public.dukungan_laporan cascade;
+drop table if exists public.pengguna cascade;
 drop table if exists public.laporan cascade;
 drop table if exists public.kategori cascade;
 drop function if exists public.tambah_dukungan(text);
+drop function if exists public.tambah_dukungan_pengguna(text, bigint);
 drop function if exists public.laporan_sebelum_tambah();
 drop function if exists public.laporan_sebelum_ubah();
 
@@ -18,6 +21,21 @@ create table public.kategori (
   nama text   not null unique
        constraint kategori_nama_panjang check (char_length(btrim(nama)) between 3 and 30)
 );
+
+-- ---------------------------------------------------------------------
+-- Tabel pengguna (akun pengunjung untuk dukungan 1x per akun)
+-- ---------------------------------------------------------------------
+create table public.pengguna (
+  id            bigint generated always as identity primary key,
+  nama          text   not null
+                constraint pengguna_nama_panjang check (char_length(btrim(nama)) between 3 and 40),
+  email         text   not null unique
+                constraint pengguna_email_valid check (position('@' in btrim(email)) > 1),
+  password_hash text   not null,
+  dibuat        timestamptz not null default now()
+);
+
+create unique index pengguna_email_lower_idx on public.pengguna (lower(btrim(email)));
 
 -- ---------------------------------------------------------------------
 -- Tabel laporan
@@ -35,6 +53,7 @@ create table public.laporan (
               constraint laporan_lokasi_panjang check (char_length(btrim(lokasi)) between 3 and 60),
   pelapor     text   not null
               constraint laporan_pelapor_panjang check (char_length(btrim(pelapor)) between 3 and 40),
+  foto_url    text,
   status      text   not null default 'baru'
               constraint laporan_status_valid check (status in ('baru', 'diproses', 'selesai')),
   tanggapan   text,
@@ -49,6 +68,19 @@ create table public.laporan (
 
 create index laporan_kategori_idx on public.laporan (kategori_id);
 create index laporan_status_idx on public.laporan (status);
+
+-- ---------------------------------------------------------------------
+-- Tabel dukungan_laporan (1 akun maksimal 1 dukungan per laporan)
+-- ---------------------------------------------------------------------
+create table public.dukungan_laporan (
+  id          bigint generated always as identity primary key,
+  laporan_id  bigint not null references public.laporan (id) on delete cascade,
+  pengguna_id bigint not null references public.pengguna (id) on delete cascade,
+  dibuat      timestamptz not null default now(),
+  constraint dukungan_unik_per_akun unique (laporan_id, pengguna_id)
+);
+
+create index dukungan_laporan_pengguna_idx on public.dukungan_laporan (pengguna_id);
 
 -- ---------------------------------------------------------------------
 -- Aturan bisnis yang dijaga basis data (lapis kedua setelah server)
@@ -103,29 +135,52 @@ create trigger laporan_cek_ubah
 before update on public.laporan
 for each row execute function public.laporan_sebelum_ubah();
 
--- 4) Tambah dukungan secara atomik (dipanggil server dengan kunci rahasia)
-create function public.tambah_dukungan(p_kode text)
+-- 4) Tambah dukungan secara atomik berbasis akun (1 akun = 1 dukungan per laporan)
+create function public.tambah_dukungan_pengguna(p_kode text, p_pengguna_id bigint)
 returns integer
-language sql
+language plpgsql
 set search_path = public
 as $$
+declare
+  v_laporan_id bigint;
+  v_dukungan   integer;
+begin
+  select id into v_laporan_id from public.laporan where kode = p_kode;
+  if v_laporan_id is null then
+    return null;
+  end if;
+
+  insert into public.dukungan_laporan (laporan_id, pengguna_id)
+  values (v_laporan_id, p_pengguna_id);
+
   update public.laporan
      set dukungan = dukungan + 1
-   where kode = p_kode
-  returning dukungan;
+   where id = v_laporan_id
+  returning dukungan into v_dukungan;
+
+  return v_dukungan;
+exception
+  when unique_violation then
+    raise exception 'SUDAH_DIDUKUNG' using errcode = 'P0001',
+      hint = 'Akun ini sudah mendukung laporan tersebut.';
+end;
 $$;
 
-revoke execute on function public.tambah_dukungan(text) from public, anon, authenticated;
-grant execute on function public.tambah_dukungan(text) to service_role;
+revoke execute on function public.tambah_dukungan_pengguna(text, bigint) from public, anon, authenticated;
+grant execute on function public.tambah_dukungan_pengguna(text, bigint) to service_role;
 
 -- ---------------------------------------------------------------------
 -- Row Level Security (aktif pada semua tabel)
---   kategori : kunci publik hanya boleh BACA
---   laporan  : kunci publik TIDAK punya akses sama sekali (tanpa policy)
+--   kategori          : kunci publik hanya boleh BACA
+--   laporan           : kunci publik TIDAK punya akses sama sekali
+--   pengguna          : kunci publik TIDAK punya akses sama sekali
+--   dukungan_laporan  : kunci publik TIDAK punya akses sama sekali
 --   Kunci rahasia (service_role) melewati RLS -> baca/tambah/ubah/hapus.
 -- ---------------------------------------------------------------------
-alter table public.kategori enable row level security;
-alter table public.laporan  enable row level security;
+alter table public.kategori         enable row level security;
+alter table public.laporan          enable row level security;
+alter table public.pengguna         enable row level security;
+alter table public.dukungan_laporan enable row level security;
 
 create policy "kategori dapat dibaca publik"
   on public.kategori for select
@@ -135,6 +190,8 @@ create policy "kategori dapat dibaca publik"
 -- Cabut hak tulis dari peran publik sebagai lapisan tambahan
 revoke insert, update, delete on public.kategori from anon, authenticated;
 revoke all on public.laporan from anon, authenticated;
+revoke all on public.pengguna from anon, authenticated;
+revoke all on public.dukungan_laporan from anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- Data contoh (fiktif)
