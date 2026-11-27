@@ -8,7 +8,6 @@ const MENU = [
   { href: "/laporan", label: "Laporan" },
   { href: "/lapor", label: "Lapor" },
   { href: "/lacak", label: "Lacak" },
-  { href: "/admin", label: "Admin" },
 ];
 
 export function NavLinks() {
