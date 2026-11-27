@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { MenuPengguna } from "@/components/menu-pengguna";
@@ -23,10 +24,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col bg-slate-50 text-slate-900 selection:bg-blue-100 selection:text-blue-900">
         <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-md">
           <nav className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-            <Link href="/" className="group flex items-center gap-2.5 text-lg font-bold tracking-tight text-slate-900">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-sm text-white shadow-sm transition-transform duration-200 group-hover:scale-105 group-hover:-rotate-6">
-                🛠️
-              </span>
+            <Link href="/" className="group flex items-center gap-2 text-lg font-bold tracking-tight text-slate-900">
+              <Image
+                src="/logo.png"
+                alt="Logo LaporKu"
+                width={36}
+                height={36}
+                priority
+                className="h-9 w-9 object-contain transition-transform duration-200 group-hover:scale-105 group-hover:-rotate-3"
+              />
               <span className="bg-gradient-to-r from-blue-700 to-indigo-700 bg-clip-text text-transparent">
                 LaporKu
               </span>
