@@ -12,8 +12,19 @@ import {
 
 /** Kolom yang aman untuk publik: nama pelapor sengaja tidak diambil. */
 const KOLOM_PUBLIK =
-  "id, kode, kategori_id, judul, deskripsi, lokasi, status, tanggapan, dukungan, dibuat, diperbarui, kategori(nama)";
+  "id, kode, kategori_id, judul, deskripsi, lokasi, foto_url, status, tanggapan, dukungan, dibuat, diperbarui, kategori(nama)";
 const KOLOM_ADMIN = `${KOLOM_PUBLIK}, pelapor`;
+
+export const PER_HALAMAN_PUBLIK = 6;
+export const PER_HALAMAN_ADMIN = 10;
+
+export type HasilPaginasi<T> = {
+  items: T[];
+  total: number;
+  halaman: number;
+  totalHalaman: number;
+  perHalaman: number;
+};
 
 /**
  * Setiap fungsi baca memanggil connection() agar data selalu diambil saat permintaan
@@ -66,6 +77,7 @@ export type FilterLaporan = {
   kategori?: number;
   status?: Status;
   q?: string;
+  halaman?: number;
 };
 
 /** Membersihkan kata kunci dari karakter khusus sintaks filter PostgREST. */
@@ -73,21 +85,42 @@ function bersihkanKataKunci(q: string): string {
   return q.replace(/[%,()*\\:."']/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
 }
 
-export async function getDaftarLaporan(filter: FilterLaporan): Promise<LaporanPublik[]> {
-  await connection();
-  let query = supabaseServer().from("laporan").select(KOLOM_PUBLIK);
+function bangunQueryDaftar(filter: FilterLaporan) {
+  let query = supabaseServer().from("laporan").select(KOLOM_PUBLIK, { count: "exact" });
   if (filter.kategori) query = query.eq("kategori_id", filter.kategori);
   if (filter.status) query = query.eq("status", filter.status);
   const q = filter.q ? bersihkanKataKunci(filter.q) : "";
   if (q) {
     query = query.or(`judul.ilike.%${q}%,deskripsi.ilike.%${q}%,lokasi.ilike.%${q}%`);
   }
-  const { data, error } = await query
-    .order("dibuat", { ascending: false })
-    .order("id", { ascending: false })
+  return query.order("dibuat", { ascending: false }).order("id", { ascending: false });
+}
+
+export async function getDaftarLaporan(filter: FilterLaporan): Promise<HasilPaginasi<LaporanPublik>> {
+  await connection();
+  const perHalaman = PER_HALAMAN_PUBLIK;
+  const halamanDiminta = Math.max(1, Math.floor(filter.halaman ?? 1));
+  const mulai = (halamanDiminta - 1) * perHalaman;
+
+  const { data, count, error } = await bangunQueryDaftar(filter)
+    .range(mulai, mulai + perHalaman - 1)
     .returns<LaporanPublik[]>();
   if (error) gagal("daftar laporan", error.message);
-  return data;
+
+  const total = count ?? 0;
+  const totalHalaman = Math.max(1, Math.ceil(total / perHalaman));
+
+  // Bila halaman di URL melebihi jumlah halaman yang tersedia, muat halaman terakhir.
+  if (total > 0 && halamanDiminta > totalHalaman) {
+    const mulaiAkhir = (totalHalaman - 1) * perHalaman;
+    const { data: dataAkhir, error: errAkhir } = await bangunQueryDaftar(filter)
+      .range(mulaiAkhir, mulaiAkhir + perHalaman - 1)
+      .returns<LaporanPublik[]>();
+    if (errAkhir) gagal("daftar laporan", errAkhir.message);
+    return { items: dataAkhir ?? [], total, halaman: totalHalaman, totalHalaman, perHalaman };
+  }
+
+  return { items: data ?? [], total, halaman: halamanDiminta, totalHalaman, perHalaman };
 }
 
 export async function getLaporanByKode(kode: string): Promise<LaporanPublik | null> {
@@ -106,15 +139,36 @@ export async function getLaporanByKode(kode: string): Promise<LaporanPublik | nu
 /* ------------------------------ Khusus admin ------------------------------ */
 /* Fungsi di bawah hanya dipanggil dari halaman yang sudah memanggil requireAdmin(). */
 
-export async function getSemuaLaporanAdmin(): Promise<LaporanLengkap[]> {
+export async function getSemuaLaporanAdmin(halaman = 1): Promise<HasilPaginasi<LaporanLengkap>> {
   await connection();
-  const { data, error } = await supabaseServer()
+  const perHalaman = PER_HALAMAN_ADMIN;
+  const halamanDiminta = Math.max(1, Math.floor(halaman));
+  const mulai = (halamanDiminta - 1) * perHalaman;
+
+  const { data, count, error } = await supabaseServer()
     .from("laporan")
-    .select(KOLOM_ADMIN)
+    .select(KOLOM_ADMIN, { count: "exact" })
     .order("id", { ascending: false })
+    .range(mulai, mulai + perHalaman - 1)
     .returns<LaporanLengkap[]>();
   if (error) gagal("laporan", error.message);
-  return data;
+
+  const total = count ?? 0;
+  const totalHalaman = Math.max(1, Math.ceil(total / perHalaman));
+
+  if (total > 0 && halamanDiminta > totalHalaman) {
+    const mulaiAkhir = (totalHalaman - 1) * perHalaman;
+    const { data: dataAkhir, error: errAkhir } = await supabaseServer()
+      .from("laporan")
+      .select(KOLOM_ADMIN)
+      .order("id", { ascending: false })
+      .range(mulaiAkhir, mulaiAkhir + perHalaman - 1)
+      .returns<LaporanLengkap[]>();
+    if (errAkhir) gagal("laporan", errAkhir.message);
+    return { items: dataAkhir ?? [], total, halaman: totalHalaman, totalHalaman, perHalaman };
+  }
+
+  return { items: data ?? [], total, halaman: halamanDiminta, totalHalaman, perHalaman };
 }
 
 export async function getLaporanAdminById(id: number): Promise<LaporanLengkap | null> {
@@ -131,6 +185,7 @@ export async function getLaporanAdminById(id: number): Promise<LaporanLengkap | 
 }
 
 export async function getKategoriDenganJumlah(): Promise<(Kategori & { jumlah: number })[]> {
+  await connection();
   const { data, error } = await supabaseServer()
     .from("kategori")
     .select("id, nama, laporan(count)")

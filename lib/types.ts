@@ -6,6 +6,13 @@ export type Kategori = {
   nama: string;
 };
 
+/** Akun pengunjung (warga sekolah) yang sudah masuk. */
+export type Pengguna = {
+  id: number;
+  nama: string;
+  email: string;
+};
+
 /** Data laporan yang aman ditampilkan ke publik (tanpa nama pelapor). */
 export type LaporanPublik = {
   id: number;
@@ -14,6 +21,7 @@ export type LaporanPublik = {
   judul: string;
   deskripsi: string;
   lokasi: string;
+  foto_url: string | null;
   status: Status;
   tanggapan: string | null;
   dukungan: number;

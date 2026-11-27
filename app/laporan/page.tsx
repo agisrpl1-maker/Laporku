@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { getDaftarLaporan, getKategori } from "@/lib/data";
 import { DAFTAR_STATUS, isStatus } from "@/lib/types";
-import { Judul, KartuLaporan, Memuat, kelasInput, kelasTombol } from "@/components/ui";
+import { Judul, KartuLaporan, Memuat, Paginasi, kelasInput, kelasTombol } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Daftar laporan" };
 
@@ -30,16 +30,28 @@ async function Konten({ searchParams }: { searchParams: Promise<SP> }) {
   const q = satu(sp.q);
   const statusParam = satu(sp.status);
   const kategoriParam = satu(sp.kategori);
+  const halParam = Number(satu(sp.hal));
 
   const status = isStatus(statusParam) ? statusParam : undefined;
   const kategoriId = Number(kategoriParam);
   const kategori = Number.isInteger(kategoriId) && kategoriId > 0 ? kategoriId : undefined;
+  const halaman = Number.isInteger(halParam) && halParam > 0 ? halParam : 1;
 
-  const [daftarKategori, laporan] = await Promise.all([
+  const [daftarKategori, hasil] = await Promise.all([
     getKategori(),
-    getDaftarLaporan({ q, status, kategori }),
+    getDaftarLaporan({ q, status, kategori, halaman }),
   ]);
   const adaFilter = Boolean(q || status || kategori);
+
+  function buatHref(hal: number) {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (kategori) params.set("kategori", String(kategori));
+    if (status) params.set("status", status);
+    if (hal > 1) params.set("hal", String(hal));
+    const qs = params.toString();
+    return qs ? `/laporan?${qs}` : "/laporan";
+  }
 
   return (
     <div className="space-y-6">
@@ -83,18 +95,27 @@ async function Konten({ searchParams }: { searchParams: Promise<SP> }) {
         </div>
       </Form>
 
-      <p className="text-sm text-slate-600">{laporan.length} laporan ditemukan.</p>
+      <p className="text-sm text-slate-600">{hasil.total} laporan ditemukan.</p>
 
-      {laporan.length === 0 ? (
+      {hasil.items.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-slate-500">
           Tidak ada laporan yang cocok dengan saringan.
         </p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {laporan.map((l) => (
-            <KartuLaporan key={l.id} laporan={l} />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {hasil.items.map((l) => (
+              <KartuLaporan key={l.id} laporan={l} />
+            ))}
+          </div>
+          <Paginasi
+            halaman={hasil.halaman}
+            totalHalaman={hasil.totalHalaman}
+            total={hasil.total}
+            perHalaman={hasil.perHalaman}
+            buatHref={buatHref}
+          />
+        </>
       )}
     </div>
   );

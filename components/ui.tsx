@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { LaporanPublik, Status } from "@/lib/types";
 import { formatTanggal } from "@/lib/format";
@@ -22,8 +23,19 @@ export function KartuLaporan({ laporan }: { laporan: LaporanPublik }) {
   return (
     <Link
       href={`/laporan/${laporan.kode}`}
-      className="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-300 hover:shadow"
+      className="block overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-300 hover:shadow"
     >
+      {laporan.foto_url && (
+        <div className="relative mb-3 aspect-[16/9] w-full overflow-hidden rounded-lg bg-slate-100">
+          <Image
+            src={laporan.foto_url}
+            alt={`Foto kerusakan: ${laporan.judul}`}
+            fill
+            sizes="(max-width: 640px) 100vw, 480px"
+            className="object-cover"
+          />
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2">
         <span className="font-mono text-xs text-slate-500">{laporan.kode}</span>
         <StatusBadge status={laporan.status} />
@@ -37,6 +49,81 @@ export function KartuLaporan({ laporan }: { laporan: LaporanPublik }) {
         <span>🕒 {formatTanggal(laporan.dibuat)}</span>
       </div>
     </Link>
+  );
+}
+
+export function Paginasi({
+  halaman,
+  totalHalaman,
+  total,
+  perHalaman,
+  buatHref,
+}: {
+  halaman: number;
+  totalHalaman: number;
+  total: number;
+  perHalaman: number;
+  buatHref: (hal: number) => string;
+}) {
+  if (totalHalaman <= 1) return null;
+
+  const awal = (halaman - 1) * perHalaman + 1;
+  const akhir = Math.min(total, halaman * perHalaman);
+  const nomorHalaman = Array.from({ length: totalHalaman }, (_, i) => i + 1);
+
+  return (
+    <nav aria-label="Paginasi" className="flex flex-wrap items-center justify-between gap-3 pt-2">
+      <p className="text-sm text-slate-600">
+        Menampilkan {awal}–{akhir} dari {total} laporan (halaman {halaman} dari {totalHalaman})
+      </p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {halaman > 1 ? (
+          <Link
+            href={buatHref(halaman - 1)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            ← Sebelumnya
+          </Link>
+        ) : (
+          <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-400">
+            ← Sebelumnya
+          </span>
+        )}
+
+        {nomorHalaman.map((n) =>
+          n === halaman ? (
+            <span
+              key={n}
+              aria-current="page"
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white"
+            >
+              {n}
+            </span>
+          ) : (
+            <Link
+              key={n}
+              href={buatHref(n)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {n}
+            </Link>
+          ),
+        )}
+
+        {halaman < totalHalaman ? (
+          <Link
+            href={buatHref(halaman + 1)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Berikutnya →
+          </Link>
+        ) : (
+          <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-400">
+            Berikutnya →
+          </span>
+        )}
+      </div>
+    </nav>
   );
 }
 

@@ -14,6 +14,8 @@ export function pesanGalatDb(error: { code?: string; message?: string; hint?: st
   const msg = error.message ?? "";
   if (msg.includes("BATAS_LAPORAN_BARU"))
     return "Pelapor ini sudah memiliki 3 laporan berstatus baru. Tunggu hingga salah satunya diproses.";
+  if (msg.includes("SUDAH_DIDUKUNG"))
+    return "Anda sudah mendukung laporan ini. Setiap akun hanya bisa mendukung satu kali.";
   if (msg.includes("STATUS_TIDAK_VALID"))
     return "Status hanya boleh maju satu langkah: baru → diproses → selesai.";
   if (msg.includes("laporan_selesai_wajib_tanggapan"))

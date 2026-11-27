@@ -14,9 +14,28 @@ function cekPanjang(nilai: string, label: string, min: number, max: number): str
   return undefined;
 }
 
+/* ------------------------------ Foto kerusakan ------------------------------ */
+
+export const TIPE_FOTO_IZIN = ["image/jpeg", "image/png", "image/webp"] as const;
+export const MAKS_UKURAN_FOTO = 2 * 1024 * 1024; // 2 MB
+
+export function bacaFoto(formData: FormData): { file: File | null; error?: string } {
+  const entri = formData.get("foto");
+  if (!(entri instanceof File) || entri.size === 0) {
+    return { file: null };
+  }
+  if (!(TIPE_FOTO_IZIN as readonly string[]).includes(entri.type)) {
+    return { file: null, error: "Format foto harus JPG, PNG, atau WebP." };
+  }
+  if (entri.size > MAKS_UKURAN_FOTO) {
+    return { file: null, error: "Ukuran foto maksimal 2 MB." };
+  }
+  return { file: entri };
+}
+
 /* ------------------------------ Laporan baru ------------------------------ */
 
-export type LaporanField = "kategori_id" | "judul" | "deskripsi" | "lokasi" | "pelapor";
+export type LaporanField = "kategori_id" | "judul" | "deskripsi" | "lokasi" | "pelapor" | "foto";
 
 export type LaporanInput = {
   kategori_id: number;
@@ -27,7 +46,7 @@ export type LaporanInput = {
 };
 
 export function bacaLaporan(formData: FormData) {
-  const values: Record<LaporanField, string> = {
+  const values: Record<Exclude<LaporanField, "foto">, string> = {
     kategori_id: teks(formData, "kategori_id"),
     judul: teks(formData, "judul"),
     deskripsi: teks(formData, "deskripsi"),
@@ -49,8 +68,11 @@ export function bacaLaporan(formData: FormData) {
   const pelapor = cekPanjang(values.pelapor, "Nama pelapor", 3, 40);
   if (pelapor) errors.pelapor = pelapor;
 
+  const { file: foto, error: errFoto } = bacaFoto(formData);
+  if (errFoto) errors.foto = errFoto;
+
   const data: LaporanInput = { ...values, kategori_id: kategoriId };
-  return { values, errors, data, valid: Object.keys(errors).length === 0 };
+  return { values, errors, data, foto, valid: Object.keys(errors).length === 0 };
 }
 
 /* ---------------------------- Ubah laporan (admin) ---------------------------- */
@@ -87,6 +109,55 @@ export function bacaKategori(formData: FormData) {
   const nama = teks(formData, "nama");
   const error = cekPanjang(nama, "Nama kategori", 3, 30);
   return { nama, error };
+}
+
+/* ------------------------------- Akun pengunjung ------------------------------- */
+
+const POLA_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export type DaftarField = "nama" | "email" | "sandi";
+
+export function bacaDaftar(formData: FormData) {
+  const values = {
+    nama: teks(formData, "nama"),
+    email: teks(formData, "email").toLowerCase(),
+  };
+  const sandi = typeof formData.get("sandi") === "string" ? String(formData.get("sandi")) : "";
+  const errors: FieldErrors<DaftarField> = {};
+
+  const errNama = cekPanjang(values.nama, "Nama", 3, 40);
+  if (errNama) errors.nama = errNama;
+  if (!values.email) errors.email = "Email wajib diisi.";
+  else if (!POLA_EMAIL.test(values.email) || values.email.length > 100) {
+    errors.email = "Format email tidak valid.";
+  }
+  if (!sandi) errors.sandi = "Kata sandi wajib diisi.";
+  else if (sandi.length < 6) errors.sandi = "Kata sandi minimal 6 karakter.";
+  else if (sandi.length > 72) errors.sandi = "Kata sandi maksimal 72 karakter.";
+
+  return { values, sandi, errors, valid: Object.keys(errors).length === 0 };
+}
+
+export type MasukField = "email" | "sandi";
+
+export function bacaMasuk(formData: FormData) {
+  const email = teks(formData, "email").toLowerCase();
+  const sandi = typeof formData.get("sandi") === "string" ? String(formData.get("sandi")) : "";
+  const errors: FieldErrors<MasukField> = {};
+
+  if (!email) errors.email = "Email wajib diisi.";
+  else if (!POLA_EMAIL.test(email)) errors.email = "Format email tidak valid.";
+  if (!sandi) errors.sandi = "Kata sandi wajib diisi.";
+
+  return { email, sandi, errors, valid: Object.keys(errors).length === 0 };
+}
+
+/** Memastikan alamat pengalihan setelah login hanya berupa path internal yang aman. */
+export function tujuanAman(kembali: string | undefined, fallback = "/laporan"): string {
+  if (!kembali) return fallback;
+  const bersih = kembali.trim();
+  if (!bersih.startsWith("/") || bersih.startsWith("//")) return fallback;
+  return bersih;
 }
 
 /* ------------------------------- Kode laporan ------------------------------- */
