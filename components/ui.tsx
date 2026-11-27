@@ -31,6 +31,7 @@ export function KartuLaporan({ laporan }: { laporan: LaporanPublik }) {
             src={laporan.foto_url}
             alt={`Foto kerusakan: ${laporan.judul}`}
             fill
+            unoptimized
             sizes="(max-width: 640px) 100vw, 480px"
             className="object-cover"
           />

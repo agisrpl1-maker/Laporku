@@ -73,6 +73,7 @@ async function Detail({
                 src={laporan.foto_url}
                 alt={`Foto kerusakan: ${laporan.judul}`}
                 fill
+                unoptimized
                 sizes="(max-width: 768px) 100vw, 720px"
                 className="object-contain"
               />
