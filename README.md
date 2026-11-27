@@ -111,8 +111,3 @@ Galat basis data diterjemahkan menjadi pesan ramah oleh `lib/format.ts → pesan
 | Setelah galat validasi, pilihan **kategori** di formulir lapor kembali kosong padahal teks lain tetap | React mereset formulir setelah Server Action; `defaultValue` pada `<select>` tidak diperbarui setelah render pertama | State action menyimpan `values` + penghitung `percobaan`; formulir diberi `key={percobaan}` sehingga dipasang ulang dengan nilai terakhir |
 | Kata kunci berisi koma/kurung (mis. `ac,(`) membuat halaman `/laporan` galat | Karakter tersebut adalah sintaks filter `or()` PostgREST | Kata kunci dibersihkan (`bersihkanKataKunci`) sebelum dipakai di filter |
 | Halaman admin bisa dibuka lewat URL langsung bila hanya menyembunyikan menu | Proteksi hanya di tampilan | Ditambahkan `proxy.ts` + `requireAdmin()` di halaman dan di setiap Server Action |
-
-## 7. Bagian yang belum selesai
-
-- Pengisian alamat Vercel pada bagian 1 setelah proses deploy selesai.
-- Fitur pengembangan lanjutan di luar spesifikasi inti: notifikasi email saat status laporan berubah dan lupa kata sandi untuk akun pengunjung.
