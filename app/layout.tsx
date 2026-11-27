@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
+import { MenuPengguna } from "@/components/menu-pengguna";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,15 +26,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="text-lg font-bold text-blue-700">
               🛠️ LaporKu
             </Link>
-            <ul className="flex flex-wrap gap-1 text-sm font-medium">
-              {MENU.map((m) => (
-                <li key={m.href}>
-                  <Link href={m.href} className="rounded-md px-3 py-1.5 text-slate-700 hover:bg-slate-100">
-                    {m.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <div className="flex flex-wrap items-center gap-3">
+              <ul className="flex flex-wrap gap-1 text-sm font-medium">
+                {MENU.map((m) => (
+                  <li key={m.href}>
+                    <Link href={m.href} className="rounded-md px-3 py-1.5 text-slate-700 hover:bg-slate-100">
+                      {m.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <Suspense fallback={<span className="h-8 w-16 animate-pulse rounded-md bg-slate-100" />}>
+                <MenuPengguna />
+              </Suspense>
+            </div>
           </nav>
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>

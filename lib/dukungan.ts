@@ -1,11 +1,15 @@
 import "server-only";
-import { cookies } from "next/headers";
-import { POLA_KODE } from "./validasi";
+import { supabaseServer } from "./supabase";
 
-/** Cookie httpOnly berisi daftar kode laporan yang sudah didukung pengunjung ini. */
-export const COOKIE_DUKUNGAN = "laporku_dukungan";
+/** Mengecek di basis data apakah pengguna sudah pernah mendukung laporan ini. */
+export async function sudahDidukungPengguna(laporanId: number, penggunaId: number): Promise<boolean> {
+  const { data, error } = await supabaseServer()
+    .from("dukungan_laporan")
+    .select("id")
+    .eq("laporan_id", laporanId)
+    .eq("pengguna_id", penggunaId)
+    .maybeSingle();
 
-export async function kodeDidukung(): Promise<string[]> {
-  const nilai = (await cookies()).get(COOKIE_DUKUNGAN)?.value ?? "";
-  return nilai.split("|").filter((k) => POLA_KODE.test(k));
+  if (error) return false;
+  return Boolean(data);
 }
